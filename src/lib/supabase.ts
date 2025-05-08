@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Importando as variáveis de ambiente usando import.meta.env
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = 'https://eynzgkbifvfsnjdtiayv.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5bnpna2JpZnZmc25qZHRpYXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2Njk2NjQsImV4cCI6MjA2MjI0NTY2NH0.jc9XuPof8Spr1chGGltryoa1-whxxY1t82YiCepfiro';
 
 // Verificação para garantir que as variáveis estão definidas
 if (!supabaseUrl || !supabaseAnonKey) {

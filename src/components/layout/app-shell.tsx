@@ -1,22 +1,30 @@
-
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Logo } from '@/components/logo';
 import { SidebarNav } from './sidebar-nav';
 import { useToast } from '@/hooks/use-toast';
+import { logout } from '@/lib/supabase';
 
 export function AppShell() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    // Simulate logout
-    toast({
-      title: "Sessão encerrada",
-      description: "Você foi desconectado com sucesso.",
-    });
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Sessão encerrada",
+        description: "Você foi desconectado com sucesso.",
+      });
+      navigate('/login');
+    } catch (error) {
+      toast({
+        title: "Erro ao sair",
+        description: "Não foi possível encerrar sua sessão.",
+        variant: "destructive"
+      });
+    }
   };
 
   const sidebarNavItems = [
