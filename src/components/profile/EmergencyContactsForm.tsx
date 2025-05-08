@@ -1,42 +1,32 @@
 
 import React from 'react';
+import { useFieldArray, useFormContext } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 
-interface Contact {
-  name: string;
-  relationship: string;
-  phone: string;
-}
+const EmergencyContactsForm = () => {
+  const { control } = useFormContext();
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "emergencyContacts"
+  });
 
-interface EmergencyContactsFormProps {
-  contacts: Contact[];
-  onContactChange: (index: number, field: string, value: string) => void;
-  onAddContact: () => void;
-  onRemoveContact: (index: number) => void;
-}
-
-const EmergencyContactsForm = ({
-  contacts,
-  onContactChange,
-  onAddContact,
-  onRemoveContact
-}: EmergencyContactsFormProps) => {
   return (
     <Card className="mb-6">
       <CardHeader>
         <CardTitle>Contatos de Emergência</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {contacts.map((contact, index) => (
-          <div key={index} className="p-4 border rounded-md relative">
+        {fields.map((field, index) => (
+          <div key={field.id} className="p-4 border rounded-md relative">
             <Button
               type="button"
               variant="ghost"
               size="icon"
               className="absolute top-2 right-2 h-8 w-8 text-safewatch-muted hover:text-safewatch-danger"
-              onClick={() => onRemoveContact(index)}
+              onClick={() => remove(index)}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -56,30 +46,45 @@ const EmergencyContactsForm = ({
               </svg>
             </Button>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Nome</label>
-                <Input
-                  value={contact.name}
-                  onChange={(e) => onContactChange(index, 'name', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Relação</label>
-                <Input
-                  value={contact.relationship}
-                  onChange={(e) => onContactChange(index, 'relationship', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Telefone</label>
-                <Input
-                  value={contact.phone}
-                  onChange={(e) => onContactChange(index, 'phone', e.target.value)}
-                  required
-                />
-              </div>
+              <FormField
+                control={control}
+                name={`emergencyContacts.${index}.name`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={control}
+                name={`emergencyContacts.${index}.relationship`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Relação</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={control}
+                name={`emergencyContacts.${index}.phone`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
           </div>
         ))}
@@ -87,7 +92,7 @@ const EmergencyContactsForm = ({
         <Button
           type="button"
           variant="outline"
-          onClick={onAddContact}
+          onClick={() => append({ name: '', relationship: '', phone: '' })}
           className="w-full"
         >
           <svg

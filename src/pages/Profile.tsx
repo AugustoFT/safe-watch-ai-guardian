@@ -1,38 +1,52 @@
 
 import React, { useState, useEffect } from 'react';
+import { useForm, FormProvider } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getProfile, updateProfile } from '@/lib/supabase';
 import type { Profile } from '@/lib/supabase';
+import { profileSchema, type ProfileFormValues } from '@/lib/validation/profileSchema';
 import PersonalInfoForm from '@/components/profile/PersonalInfoForm';
 import EmergencyContactsForm from '@/components/profile/EmergencyContactsForm';
 
 const ProfilePage = () => {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [userEmail, setUserEmail] = useState('');
   
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    emergencyContacts: [
-      { name: '', relationship: '', phone: '' },
-      { name: '', relationship: '', phone: '' }
-    ]
+  const methods = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: '',
+      phone: '',
+      emergencyContacts: [
+        { name: '', relationship: '', phone: '' }
+      ]
+    },
+    mode: "onChange"
   });
+
+  const { handleSubmit, reset, formState: { isSubmitting } } = methods;
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
         const profileData = await getProfile();
         if (profileData) {
-          setFormData(prev => ({
-            ...prev,
+          // Save email separately as it's read-only
+          setUserEmail(profileData.email || '');
+          
+          // Reset form with profile data
+          reset({
             name: profileData.name || '',
-            email: profileData.email || '',
-            phone: profileData.phone || ''
-          }));
+            phone: profileData.phone || '',
+            // If we had emergency contacts data, we would set it here
+            emergencyContacts: [
+              { name: '', relationship: '', phone: '' },
+              { name: '', relationship: '', phone: '' }
+            ]
+          });
         }
       } catch (error) {
         console.error('Erro ao carregar perfil:', error);
@@ -47,40 +61,14 @@ const ProfilePage = () => {
     };
 
     loadProfile();
-  }, [toast]);
+  }, [toast, reset]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleContactChange = (index: number, field: string, value: string) => {
-    const updatedContacts = [...formData.emergencyContacts];
-    updatedContacts[index] = { ...updatedContacts[index], [field]: value };
-    setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
-  };
-
-  const addContact = () => {
-    setFormData(prev => ({
-      ...prev,
-      emergencyContacts: [...prev.emergencyContacts, { name: '', relationship: '', phone: '' }]
-    }));
-  };
-
-  const removeContact = (index: number) => {
-    const updatedContacts = [...formData.emergencyContacts];
-    updatedContacts.splice(index, 1);
-    setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
+  const onSubmit = async (data: ProfileFormValues) => {
     try {
       await updateProfile({
-        name: formData.name,
-        phone: formData.phone
+        name: data.name,
+        phone: data.phone
+        // In the future, we would save emergency contacts here
       });
       
       toast({
@@ -94,8 +82,6 @@ const ProfilePage = () => {
         description: "Não foi possível salvar suas informações.",
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -113,31 +99,22 @@ const ProfilePage = () => {
     <div className="container mx-auto max-w-3xl">
       <h1 className="text-2xl font-bold mb-6 text-safewatch-text">Meu Perfil</h1>
       
-      <form onSubmit={handleSubmit}>
-        <PersonalInfoForm 
-          name={formData.name}
-          email={formData.email}
-          phone={formData.phone}
-          onInputChange={handleInputChange}
-        />
-        
-        <EmergencyContactsForm
-          contacts={formData.emergencyContacts}
-          onContactChange={handleContactChange}
-          onAddContact={addContact}
-          onRemoveContact={removeContact}
-        />
-        
-        <div className="flex justify-end">
-          <Button 
-            type="submit" 
-            className="bg-safewatch-primary hover:bg-safewatch-accent"
-            disabled={isLoading}
-          >
-            {isLoading ? "Salvando..." : "Salvar"}
-          </Button>
-        </div>
-      </form>
+      <FormProvider {...methods}>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <PersonalInfoForm email={userEmail} />
+          <EmergencyContactsForm />
+          
+          <div className="flex justify-end">
+            <Button 
+              type="submit" 
+              className="bg-safewatch-primary hover:bg-safewatch-accent"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </FormProvider>
     </div>
   );
 };
