@@ -27,6 +27,7 @@ const EmergencyContactsForm = () => {
               size="icon"
               className="absolute top-2 right-2 h-8 w-8 text-safewatch-muted hover:text-safewatch-danger"
               onClick={() => remove(index)}
+              disabled={fields.length === 1}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

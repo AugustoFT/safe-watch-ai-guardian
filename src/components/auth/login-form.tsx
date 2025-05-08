@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from '../logo';
-import { supabase } from '@/lib/supabase';
+import { login } from '@/lib/supabase';
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -20,15 +20,8 @@ export function LoginForm() {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      await login({ email, password });
       
-      if (error) {
-        throw error;
-      }
-
       toast({
         title: "Login bem-sucedido!",
         description: "Bem-vindo de volta ao SafeWatch.",

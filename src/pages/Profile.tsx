@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getProfile, updateProfile } from '@/lib/supabase';
-import type { Profile } from '@/lib/supabase';
+import type { Profile, EmergencyContact } from '@/lib/supabase';
 import { profileSchema, type ProfileFormValues } from '@/lib/validation/profileSchema';
 import PersonalInfoForm from '@/components/profile/PersonalInfoForm';
 import EmergencyContactsForm from '@/components/profile/EmergencyContactsForm';
@@ -41,11 +41,13 @@ const ProfilePage = () => {
           reset({
             name: profileData.name || '',
             phone: profileData.phone || '',
-            // If we had emergency contacts data, we would set it here
-            emergencyContacts: [
-              { name: '', relationship: '', phone: '' },
-              { name: '', relationship: '', phone: '' }
-            ]
+            emergencyContacts: profileData.emergency_contacts && profileData.emergency_contacts.length > 0
+              ? profileData.emergency_contacts.map(contact => ({
+                  name: contact.name,
+                  relationship: contact.relationship,
+                  phone: contact.phone
+                }))
+              : [{ name: '', relationship: '', phone: '' }]
           });
         }
       } catch (error) {
@@ -67,8 +69,8 @@ const ProfilePage = () => {
     try {
       await updateProfile({
         name: data.name,
-        phone: data.phone
-        // In the future, we would save emergency contacts here
+        phone: data.phone,
+        emergencyContacts: data.emergencyContacts
       });
       
       toast({

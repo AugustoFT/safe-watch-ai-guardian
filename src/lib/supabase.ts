@@ -19,6 +19,17 @@ export type Profile = {
   phone: string;
   created_at: string;
   updated_at?: string;
+  emergency_contacts?: EmergencyContact[];
+}
+
+export type EmergencyContact = {
+  id?: string;
+  profile_id?: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export async function getProfile() {
@@ -27,37 +38,81 @@ export async function getProfile() {
     
     if (!user) throw new Error('Usuário não autenticado');
 
-    const { data, error } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
-    if (error) throw error;
+    if (profileError) throw profileError;
     
-    return data;
+    // Buscar contatos de emergência
+    const { data: contactsData, error: contactsError } = await supabase
+      .from('emergency_contacts')
+      .select('*')
+      .eq('profile_id', user.id);
+      
+    if (contactsError) throw contactsError;
+    
+    const profile: Profile = {
+      ...profileData,
+      emergency_contacts: contactsData || []
+    };
+    
+    return profile;
   } catch (error) {
     console.error('Error fetching profile:', error);
     return null;
   }
 }
 
-export async function updateProfile({ name, phone }: { name: string, phone: string }) {
+export async function updateProfile({ 
+  name, 
+  phone, 
+  emergencyContacts 
+}: { 
+  name: string;
+  phone: string;
+  emergencyContacts: EmergencyContact[];
+}) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) throw new Error('Usuário não autenticado');
 
+    // Atualizar o perfil
     const { data, error } = await supabase
       .from('profiles')
       .update({ name, phone, updated_at: new Date().toISOString() })
       .eq('id', user.id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
     
-    return data;
+    // Deletar contatos existentes para substituir pelos novos
+    const { error: deleteError } = await supabase
+      .from('emergency_contacts')
+      .delete()
+      .eq('profile_id', user.id);
+      
+    if (deleteError) throw deleteError;
+    
+    // Inserir os novos contatos
+    if (emergencyContacts && emergencyContacts.length > 0) {
+      const contactsWithProfileId = emergencyContacts.map(contact => ({
+        ...contact,
+        profile_id: user.id,
+        created_at: new Date().toISOString()
+      }));
+      
+      const { error: insertError } = await supabase
+        .from('emergency_contacts')
+        .insert(contactsWithProfileId);
+        
+      if (insertError) throw insertError;
+    }
+    
+    return { ...data[0], emergency_contacts: emergencyContacts };
   } catch (error) {
     console.error('Error updating profile:', error);
     throw error;
@@ -109,5 +164,44 @@ export async function register({ name, email, password, phone }: {
   } catch (error) {
     console.error('Error during registration:', error);
     throw error;
+  }
+}
+
+export async function login({ email, password }: {
+  email: string;
+  password: string;
+}) {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('Error during login:', error);
+    throw error;
+  }
+}
+
+export async function getEmergencyContacts() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data, error } = await supabase
+      .from('emergency_contacts')
+      .select('*')
+      .eq('profile_id', user.id);
+
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching emergency contacts:', error);
+    return [];
   }
 }
