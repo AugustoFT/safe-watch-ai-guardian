@@ -37,16 +37,16 @@ const ProfilePage = () => {
           // Save email separately as it's read-only
           setUserEmail(profileData.email || '');
           
-          // Reset form with profile data
+          // Reset form with profile data, making sure all emergency contact fields are strings
           reset({
             name: profileData.name || '',
             phone: profileData.phone || '',
             emergencyContacts: profileData.emergency_contacts && profileData.emergency_contacts.length > 0
               ? profileData.emergency_contacts.map(contact => ({
-                  name: contact.name || '',
-                  relationship: contact.relationship || '',
-                  phone: contact.phone || ''
-                }))
+                  name: contact.name,
+                  relationship: contact.relationship,
+                  phone: contact.phone
+                })) as EmergencyContact[]
               : [{ name: '', relationship: '', phone: '' }]
           });
         }
