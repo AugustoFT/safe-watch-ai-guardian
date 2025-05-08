@@ -43,9 +43,9 @@ const ProfilePage = () => {
             phone: profileData.phone || '',
             emergencyContacts: profileData.emergency_contacts && profileData.emergency_contacts.length > 0
               ? profileData.emergency_contacts.map(contact => ({
-                  name: contact.name,
-                  relationship: contact.relationship,
-                  phone: contact.phone
+                  name: contact.name || '',
+                  relationship: contact.relationship || '',
+                  phone: contact.phone || ''
                 }))
               : [{ name: '', relationship: '', phone: '' }]
           });
