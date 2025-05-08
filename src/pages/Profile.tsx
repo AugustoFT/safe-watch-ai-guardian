@@ -10,6 +10,13 @@ import { profileSchema, type ProfileFormValues } from '@/lib/validation/profileS
 import PersonalInfoForm from '@/components/profile/PersonalInfoForm';
 import EmergencyContactsForm from '@/components/profile/EmergencyContactsForm';
 
+// Type predicate para validar se um objeto é um EmergencyContact válido
+function isValidEmergencyContact(contact: any): contact is EmergencyContact {
+  return typeof contact.name === 'string' && 
+         typeof contact.relationship === 'string' && 
+         typeof contact.phone === 'string';
+}
+
 const ProfilePage = () => {
   const { toast } = useToast();
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -37,16 +44,18 @@ const ProfilePage = () => {
           // Save email separately as it's read-only
           setUserEmail(profileData.email || '');
           
-          // Reset form with profile data, making sure all emergency contact fields are strings
+          // Reset form with profile data, garantindo tipos corretos
           reset({
             name: profileData.name || '',
             phone: profileData.phone || '',
             emergencyContacts: profileData.emergency_contacts && profileData.emergency_contacts.length > 0
-              ? profileData.emergency_contacts.map(contact => ({
-                  name: contact.name,
-                  relationship: contact.relationship,
-                  phone: contact.phone
-                })) as EmergencyContact[]
+              ? profileData.emergency_contacts
+                  .filter(isValidEmergencyContact)
+                  .map(contact => ({
+                    name: contact.name,
+                    relationship: contact.relationship,
+                    phone: contact.phone
+                  }))
               : [{ name: '', relationship: '', phone: '' }]
           });
         }
