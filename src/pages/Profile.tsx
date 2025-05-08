@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { getProfile, updateProfile, Profile } from '@/lib/supabase';
+import { getProfile, updateProfile } from '@/lib/supabase';
+import type { Profile } from '@/lib/supabase';
 
-const Profile = () => {
+const ProfilePage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -294,4 +295,4 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+export default ProfilePage;
