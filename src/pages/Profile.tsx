@@ -1,23 +1,52 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { getProfile, updateProfile, Profile } from '@/lib/supabase';
 
 const Profile = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   
   const [formData, setFormData] = useState({
-    name: 'João Silva',
-    email: 'joao.silva@exemplo.com',
-    phone: '(11) 98765-4321',
+    name: '',
+    email: '',
+    phone: '',
     emergencyContacts: [
-      { name: 'Maria Silva', relationship: 'Filha', phone: '(11) 91234-5678' },
-      { name: 'Hospital São Paulo', relationship: 'Hospital', phone: '(11) 3333-4444' }
+      { name: '', relationship: '', phone: '' },
+      { name: '', relationship: '', phone: '' }
     ]
   });
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profileData = await getProfile();
+        if (profileData) {
+          setFormData(prev => ({
+            ...prev,
+            name: profileData.name || '',
+            email: profileData.email || '',
+            phone: profileData.phone || ''
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar perfil:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os dados do perfil.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -43,19 +72,41 @@ const Profile = () => {
     setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await updateProfile({
+        name: formData.name,
+        phone: formData.phone
+      });
+      
       toast({
         title: "Perfil atualizado",
         description: "Suas informações foram salvas com sucesso.",
       });
-    }, 1000);
+    } catch (error) {
+      console.error('Erro ao atualizar perfil:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar suas informações.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (isLoadingProfile) {
+    return (
+      <div className="container mx-auto max-w-3xl py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-safewatch-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-3xl">
@@ -126,8 +177,10 @@ const Profile = () => {
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                required
+                disabled
+                className="bg-gray-100"
               />
+              <p className="text-xs text-gray-500 mt-1">O e-mail não pode ser alterado</p>
             </div>
             
             <div>

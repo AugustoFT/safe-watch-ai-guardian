@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from '../logo';
+import { register } from '@/lib/supabase';
 
 export function RegisterForm() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -30,15 +32,24 @@ export function RegisterForm() {
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await register({ name, email, password, phone });
+      
       toast({
         title: "Cadastro realizado!",
         description: "Sua conta foi criada com sucesso.",
       });
+      
       navigate("/dashboard");
-    }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Erro no cadastro",
+        description: error.message || "Não foi possível criar sua conta. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -69,6 +80,18 @@ export function RegisterForm() {
               placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="phone" className="text-sm font-medium">Telefone</label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="(11) 98765-4321"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               required
               className="w-full"
             />
