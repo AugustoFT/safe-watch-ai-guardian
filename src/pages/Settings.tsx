@@ -1,58 +1,97 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { getUserSettings, updateUserSettings, type UserSettings } from '@/lib/supabase';
 
 const Settings = () => {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
-  const [settings, setSettings] = useState({
-    subscription: 'premium',
-    notifications: {
-      sms: true,
-      call: true,
-      push: true,
-    },
-    storage: {
-      cloudEnabled: true,
-      retentionDays: 30,
-    },
-    ai: {
-      fallDetectionSensitivity: 70,
-      heartRateDetectionSensitivity: 60,
-      motionDetectionSensitivity: 50,
-    }
+  const [settings, setSettings] = useState<UserSettings>({
+    user_id: '',
+    subscription_plan: 'basic',
+    sms_enabled: false,
+    call_enabled: false,
+    push_enabled: true,
+    cloud_storage_enabled: true,
+    retention_days: 30,
+    fall_detection_sensitivity: 70,
+    heart_rate_detection_sensitivity: 60,
+    motion_detection_sensitivity: 50,
   });
 
-  const handleToggleChange = (section: 'notifications' | 'storage', field: string) => {
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setIsLoading(true);
+        const userSettings = await getUserSettings();
+        if (userSettings) {
+          setSettings(userSettings);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar suas configurações.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, [toast]);
+
+  const handleToggleChange = (field: keyof UserSettings) => {
     setSettings(prev => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: !prev[section][field],
-      }
+      [field]: !prev[field as keyof typeof prev],
     }));
   };
 
-  const handleSliderChange = (field: string, value: number[]) => {
+  const handleSliderChange = (field: keyof UserSettings, value: number[]) => {
     setSettings(prev => ({
       ...prev,
-      ai: {
-        ...prev.ai,
-        [field]: value[0],
-      }
+      [field]: value[0],
     }));
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Configurações salvas",
-      description: "Suas preferências foram atualizadas com sucesso.",
-    });
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      await updateUserSettings(settings);
+      toast({
+        title: "Configurações salvas",
+        description: "Suas preferências foram atualizadas com sucesso.",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar suas configurações.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto max-w-4xl">
+        <h1 className="text-2xl font-bold mb-6 text-safewatch-text">Configurações</h1>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-safewatch-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-4xl">
@@ -66,9 +105,11 @@ const Settings = () => {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium">Plano {settings.subscription === 'premium' ? 'Premium' : 'Básico'}</h3>
+                <h3 className="font-medium">
+                  Plano {settings.subscription_plan === 'premium' ? 'Premium' : 'Básico'}
+                </h3>
                 <p className="text-sm text-safewatch-muted">
-                  {settings.subscription === 'premium' 
+                  {settings.subscription_plan === 'premium' 
                     ? 'Monitoramento avançado com todas as funcionalidades.' 
                     : 'Monitoramento básico com recursos limitados.'}
                 </p>
@@ -91,8 +132,8 @@ const Settings = () => {
                 </p>
               </div>
               <Switch
-                checked={settings.notifications.sms}
-                onCheckedChange={() => handleToggleChange('notifications', 'sms')}
+                checked={settings.sms_enabled}
+                onCheckedChange={() => handleToggleChange('sms_enabled')}
               />
             </div>
             
@@ -104,8 +145,8 @@ const Settings = () => {
                 </p>
               </div>
               <Switch
-                checked={settings.notifications.call}
-                onCheckedChange={() => handleToggleChange('notifications', 'call')}
+                checked={settings.call_enabled}
+                onCheckedChange={() => handleToggleChange('call_enabled')}
               />
             </div>
             
@@ -117,8 +158,8 @@ const Settings = () => {
                 </p>
               </div>
               <Switch
-                checked={settings.notifications.push}
-                onCheckedChange={() => handleToggleChange('notifications', 'push')}
+                checked={settings.push_enabled}
+                onCheckedChange={() => handleToggleChange('push_enabled')}
               />
             </div>
           </CardContent>
@@ -137,28 +178,22 @@ const Settings = () => {
                 </p>
               </div>
               <Switch
-                checked={settings.storage.cloudEnabled}
-                onCheckedChange={() => handleToggleChange('storage', 'cloudEnabled')}
+                checked={settings.cloud_storage_enabled}
+                onCheckedChange={() => handleToggleChange('cloud_storage_enabled')}
               />
             </div>
             
             <div>
               <div className="flex justify-between mb-2">
                 <h3 className="font-medium">Período de Retenção</h3>
-                <span className="text-safewatch-primary">{settings.storage.retentionDays} dias</span>
+                <span className="text-safewatch-primary">{settings.retention_days} dias</span>
               </div>
               <Slider
-                value={[settings.storage.retentionDays]}
+                value={[settings.retention_days]}
                 min={7}
                 max={90}
                 step={1}
-                onValueChange={(value) => setSettings(prev => ({
-                  ...prev,
-                  storage: {
-                    ...prev.storage,
-                    retentionDays: value[0],
-                  }
-                }))}
+                onValueChange={(value) => handleSliderChange('retention_days', value)}
               />
               <p className="text-xs text-safewatch-muted mt-1">
                 Define por quanto tempo as gravações serão mantidas na nuvem.
@@ -175,14 +210,14 @@ const Settings = () => {
             <div>
               <div className="flex justify-between mb-2">
                 <h3 className="font-medium">Sensibilidade de Detecção de Quedas</h3>
-                <span className="text-safewatch-primary">{settings.ai.fallDetectionSensitivity}%</span>
+                <span className="text-safewatch-primary">{settings.fall_detection_sensitivity}%</span>
               </div>
               <Slider
-                value={[settings.ai.fallDetectionSensitivity]}
+                value={[settings.fall_detection_sensitivity]}
                 min={10}
                 max={100}
                 step={5}
-                onValueChange={(value) => handleSliderChange('fallDetectionSensitivity', value)}
+                onValueChange={(value) => handleSliderChange('fall_detection_sensitivity', value)}
               />
               <p className="text-xs text-safewatch-muted mt-1">
                 Valores mais altos detectam eventos menores, mas podem gerar mais falsos positivos.
@@ -192,14 +227,14 @@ const Settings = () => {
             <div>
               <div className="flex justify-between mb-2">
                 <h3 className="font-medium">Sensibilidade de Detecção de Batimentos</h3>
-                <span className="text-safewatch-primary">{settings.ai.heartRateDetectionSensitivity}%</span>
+                <span className="text-safewatch-primary">{settings.heart_rate_detection_sensitivity}%</span>
               </div>
               <Slider
-                value={[settings.ai.heartRateDetectionSensitivity]}
+                value={[settings.heart_rate_detection_sensitivity]}
                 min={10}
                 max={100}
                 step={5}
-                onValueChange={(value) => handleSliderChange('heartRateDetectionSensitivity', value)}
+                onValueChange={(value) => handleSliderChange('heart_rate_detection_sensitivity', value)}
               />
               <p className="text-xs text-safewatch-muted mt-1">
                 Ajuste a sensibilidade para detecção de anomalias nos batimentos cardíacos.
@@ -209,14 +244,14 @@ const Settings = () => {
             <div>
               <div className="flex justify-between mb-2">
                 <h3 className="font-medium">Sensibilidade de Detecção de Movimento</h3>
-                <span className="text-safewatch-primary">{settings.ai.motionDetectionSensitivity}%</span>
+                <span className="text-safewatch-primary">{settings.motion_detection_sensitivity}%</span>
               </div>
               <Slider
-                value={[settings.ai.motionDetectionSensitivity]}
+                value={[settings.motion_detection_sensitivity]}
                 min={10}
                 max={100}
                 step={5}
-                onValueChange={(value) => handleSliderChange('motionDetectionSensitivity', value)}
+                onValueChange={(value) => handleSliderChange('motion_detection_sensitivity', value)}
               />
               <p className="text-xs text-safewatch-muted mt-1">
                 Detecta movimentos incomuns na área monitorada.
@@ -229,8 +264,9 @@ const Settings = () => {
           <Button 
             onClick={handleSave}
             className="bg-safewatch-primary hover:bg-safewatch-accent"
+            disabled={isSaving}
           >
-            Salvar Configurações
+            {isSaving ? "Salvando..." : "Salvar Configurações"}
           </Button>
         </div>
       </div>

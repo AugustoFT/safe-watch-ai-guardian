@@ -1,9 +1,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Importando as variáveis de ambiente usando import.meta.env
-const supabaseUrl = 'https://eynzgkbifvfsnjdtiayv.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5bnpna2JpZnZmc25qZHRpYXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2Njk2NjQsImV4cCI6MjA2MjI0NTY2NH0.jc9XuPof8Spr1chGGltryoa1-whxxY1t82YiCepfiro';
+// Get environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Verificação para garantir que as variáveis estão definidas
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -12,6 +13,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Cliente com role de serviço (usar apenas em funções seguras/edge functions)
+export const supabaseAdmin = supabaseServiceRoleKey 
+  ? createClient(supabaseUrl, supabaseServiceRoleKey)
+  : null;
+
+// Tipos
 export type Profile = {
   id: string;
   name: string;
@@ -32,6 +39,35 @@ export type EmergencyContact = {
   updated_at?: string;
 }
 
+export type Camera = {
+  id?: string;
+  user_id?: string;
+  name: string;
+  location: string;
+  rtsp_url: string;
+  description?: string;
+  status?: 'online' | 'offline' | 'error';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type UserSettings = {
+  id?: string;
+  user_id: string;
+  subscription_plan?: string;
+  sms_enabled: boolean;
+  call_enabled: boolean;
+  push_enabled: boolean;
+  cloud_storage_enabled: boolean;
+  retention_days: number;
+  fall_detection_sensitivity: number;
+  heart_rate_detection_sensitivity: number;
+  motion_detection_sensitivity: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Funções para perfil
 export async function getProfile() {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -119,6 +155,7 @@ export async function updateProfile({
   }
 }
 
+// Funções de autenticação
 export async function logout() {
   try {
     const { error } = await supabase.auth.signOut();
@@ -186,22 +223,236 @@ export async function login({ email, password }: {
   }
 }
 
-export async function getEmergencyContacts() {
+// Funções para câmeras
+export async function getCameras() {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) throw new Error('Usuário não autenticado');
 
     const { data, error } = await supabase
-      .from('emergency_contacts')
+      .from('cameras')
       .select('*')
-      .eq('profile_id', user.id);
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     
-    return data;
+    return data as Camera[];
   } catch (error) {
-    console.error('Error fetching emergency contacts:', error);
-    return [];
+    console.error('Error fetching cameras:', error);
+    throw error;
+  }
+}
+
+export async function getCamera(id: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data, error } = await supabase
+      .from('cameras')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) throw error;
+    
+    return data as Camera;
+  } catch (error) {
+    console.error('Error fetching camera:', error);
+    throw error;
+  }
+}
+
+export async function addCamera(camera: Omit<Camera, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data, error } = await supabase
+      .from('cameras')
+      .insert({
+        ...camera,
+        user_id: user.id,
+        created_at: new Date().toISOString(),
+        status: 'offline' // Status inicial
+      })
+      .select();
+
+    if (error) throw error;
+    
+    return data[0] as Camera;
+  } catch (error) {
+    console.error('Error adding camera:', error);
+    throw error;
+  }
+}
+
+export async function updateCamera(id: string, camera: Partial<Camera>) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data, error } = await supabase
+      .from('cameras')
+      .update({
+        ...camera,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select();
+
+    if (error) throw error;
+    
+    return data[0] as Camera;
+  } catch (error) {
+    console.error('Error updating camera:', error);
+    throw error;
+  }
+}
+
+export async function deleteCamera(id: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { error } = await supabase
+      .from('cameras')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting camera:', error);
+    throw error;
+  }
+}
+
+// Funções para configurações do usuário
+export async function getUserSettings() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') { // Nenhum resultado encontrado
+        // Criar configurações padrão se não existirem
+        return createDefaultUserSettings();
+      }
+      throw error;
+    }
+    
+    return data as UserSettings;
+  } catch (error) {
+    console.error('Error fetching user settings:', error);
+    throw error;
+  }
+}
+
+export async function createDefaultUserSettings() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const defaultSettings: Omit<UserSettings, 'id'> = {
+      user_id: user.id,
+      subscription_plan: 'basic',
+      sms_enabled: false,
+      call_enabled: false,
+      push_enabled: true,
+      cloud_storage_enabled: true,
+      retention_days: 30,
+      fall_detection_sensitivity: 70,
+      heart_rate_detection_sensitivity: 60,
+      motion_detection_sensitivity: 50,
+    };
+
+    const { data, error } = await supabase
+      .from('user_settings')
+      .insert(defaultSettings)
+      .select();
+
+    if (error) throw error;
+    
+    return data[0] as UserSettings;
+  } catch (error) {
+    console.error('Error creating default user settings:', error);
+    throw error;
+  }
+}
+
+export async function updateUserSettings(settings: Partial<UserSettings>) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Usuário não autenticado');
+
+    // Verificar se as configurações já existem
+    const { data: existingData, error: fetchError } = await supabase
+      .from('user_settings')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+
+    if (existingData) {
+      // Atualizar configurações existentes
+      const { data, error } = await supabase
+        .from('user_settings')
+        .update({
+          ...settings,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingData.id)
+        .select();
+
+      if (error) throw error;
+      return data[0] as UserSettings;
+    } else {
+      // Criar novas configurações
+      const newSettings = {
+        user_id: user.id,
+        subscription_plan: 'basic',
+        sms_enabled: false,
+        call_enabled: false,
+        push_enabled: true,
+        cloud_storage_enabled: true,
+        retention_days: 30,
+        fall_detection_sensitivity: 70,
+        heart_rate_detection_sensitivity: 60,
+        motion_detection_sensitivity: 50,
+        ...settings,
+      };
+
+      const { data, error } = await supabase
+        .from('user_settings')
+        .insert(newSettings)
+        .select();
+
+      if (error) throw error;
+      return data[0] as UserSettings;
+    }
+  } catch (error) {
+    console.error('Error updating user settings:', error);
+    throw error;
   }
 }

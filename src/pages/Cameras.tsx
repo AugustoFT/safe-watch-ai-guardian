@@ -1,17 +1,55 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { CameraCard } from '@/components/dashboard/camera-card';
+import { getCameras, deleteCamera, type Camera } from '@/lib/supabase';
+import { useToast } from "@/hooks/use-toast";
 
 const Cameras = () => {
   const navigate = useNavigate();
-  
-  // Mock data
-  const cameras = [
-    { id: '1', name: 'Quarto Principal', location: 'Segundo andar' },
-    { id: '2', name: 'Sala de Estar', location: 'Térreo' },
-  ];
+  const { toast } = useToast();
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCameras = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getCameras();
+        setCameras(data || []);
+      } catch (error) {
+        console.error('Erro ao carregar câmeras:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar suas câmeras.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCameras();
+  }, [toast]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCamera(id);
+      setCameras(prev => prev.filter(camera => camera.id !== id));
+      toast({
+        title: "Câmera removida",
+        description: "A câmera foi removida com sucesso."
+      });
+    } catch (error) {
+      console.error('Erro ao remover câmera:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível remover a câmera.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto max-w-6xl">
@@ -38,7 +76,11 @@ const Cameras = () => {
         </Button>
       </div>
 
-      {cameras.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-safewatch-primary"></div>
+        </div>
+      ) : cameras.length === 0 ? (
         <div className="text-center py-12">
           <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
             <svg
@@ -71,9 +113,10 @@ const Cameras = () => {
           {cameras.map((camera) => (
             <CameraCard
               key={camera.id}
-              id={camera.id}
+              id={camera.id || ''}
               name={camera.name}
               location={camera.location}
+              onDelete={() => camera.id && handleDelete(camera.id)}
             />
           ))}
           <div className="border border-dashed rounded-lg flex items-center justify-center p-6 aspect-video hover:bg-gray-50 cursor-pointer" onClick={() => navigate('/cameras/add')}>

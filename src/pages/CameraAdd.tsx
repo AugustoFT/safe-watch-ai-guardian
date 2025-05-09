@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
+import { addCamera } from '@/lib/supabase';
 
 const CameraAdd = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const CameraAdd = () => {
   const [formData, setFormData] = useState({
     name: '',
     location: '',
-    rtspUrl: '',
+    rtsp_url: '',
     description: ''
   });
 
@@ -23,19 +24,33 @@ const CameraAdd = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await addCamera({
+        name: formData.name,
+        location: formData.location,
+        rtsp_url: formData.rtsp_url,
+        description: formData.description
+      });
+      
       toast({
         title: "Câmera adicionada",
         description: "Sua câmera foi adicionada com sucesso.",
       });
       navigate('/cameras');
-    }, 1000);
+    } catch (error) {
+      console.error("Erro ao adicionar câmera:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar a câmera.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -94,11 +109,11 @@ const CameraAdd = () => {
             </div>
             
             <div>
-              <label htmlFor="rtspUrl" className="block text-sm font-medium mb-1">URL da Câmera (RTSP)</label>
+              <label htmlFor="rtsp_url" className="block text-sm font-medium mb-1">URL da Câmera (RTSP)</label>
               <Input
-                id="rtspUrl"
-                name="rtspUrl"
-                value={formData.rtspUrl}
+                id="rtsp_url"
+                name="rtsp_url"
+                value={formData.rtsp_url}
                 onChange={handleInputChange}
                 placeholder="rtsp://usuario:senha@192.168.1.100:554/stream"
                 required

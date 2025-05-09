@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,19 +44,31 @@ const ProfilePage = () => {
           // Save email separately as it's read-only
           setUserEmail(profileData.email || '');
           
-          // Reset form with profile data, garantindo tipos corretos
+          // Processar os contatos de emergência para garantir que são válidos
+          const validContacts: EmergencyContact[] = [];
+          
+          if (profileData.emergency_contacts && profileData.emergency_contacts.length > 0) {
+            profileData.emergency_contacts.forEach(contact => {
+              if (isValidEmergencyContact(contact)) {
+                validContacts.push({
+                  name: contact.name,
+                  relationship: contact.relationship,
+                  phone: contact.phone
+                });
+              }
+            });
+          }
+          
+          // Se não houver contatos válidos, criar um contato vazio
+          if (validContacts.length === 0) {
+            validContacts.push({ name: '', relationship: '', phone: '' });
+          }
+          
+          // Reset form with profile data
           reset({
             name: profileData.name || '',
             phone: profileData.phone || '',
-            emergencyContacts: profileData.emergency_contacts && profileData.emergency_contacts.length > 0
-              ? (profileData.emergency_contacts || [])
-                  .filter(isValidEmergencyContact)
-                  .map(contact => ({
-                    name: contact.name,
-                    relationship: contact.relationship,
-                    phone: contact.phone
-                  }))
-              : [{ name: '', relationship: '', phone: '' }]
+            emergencyContacts: validContacts
           });
         }
       } catch (error) {
@@ -75,10 +88,17 @@ const ProfilePage = () => {
 
   const onSubmit = async (data: ProfileFormValues) => {
     try {
+      // Garantir que todos os contatos de emergência têm as propriedades necessárias
+      const validatedContacts: EmergencyContact[] = data.emergencyContacts.map(contact => ({
+        name: contact.name || '',
+        relationship: contact.relationship || '',
+        phone: contact.phone || ''
+      }));
+      
       await updateProfile({
         name: data.name,
         phone: data.phone,
-        emergencyContacts: data.emergencyContacts
+        emergencyContacts: validatedContacts
       });
       
       toast({
