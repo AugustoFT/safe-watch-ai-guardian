@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,7 +48,7 @@ const ProfilePage = () => {
             name: profileData.name || '',
             phone: profileData.phone || '',
             emergencyContacts: profileData.emergency_contacts && profileData.emergency_contacts.length > 0
-              ? profileData.emergency_contacts
+              ? (profileData.emergency_contacts || [])
                   .filter(isValidEmergencyContact)
                   .map(contact => ({
                     name: contact.name,
