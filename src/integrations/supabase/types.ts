@@ -206,6 +206,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
           email: string
           id: string
@@ -214,6 +215,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
           email: string
           id: string
@@ -222,6 +224,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
           email?: string
           id?: string
@@ -279,33 +282,48 @@ export type Database = {
       user_settings: {
         Row: {
           call_enabled: boolean | null
+          cloud_storage_enabled: boolean | null
           created_at: string | null
           device_token: string | null
+          fall_detection_sensitivity: number | null
+          heart_rate_detection_sensitivity: number | null
           id: string
+          motion_detection_sensitivity: number | null
           notification_threshold: number | null
           push_enabled: boolean | null
+          retention_days: number | null
           sms_enabled: boolean | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           call_enabled?: boolean | null
+          cloud_storage_enabled?: boolean | null
           created_at?: string | null
           device_token?: string | null
+          fall_detection_sensitivity?: number | null
+          heart_rate_detection_sensitivity?: number | null
           id?: string
+          motion_detection_sensitivity?: number | null
           notification_threshold?: number | null
           push_enabled?: boolean | null
+          retention_days?: number | null
           sms_enabled?: boolean | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           call_enabled?: boolean | null
+          cloud_storage_enabled?: boolean | null
           created_at?: string | null
           device_token?: string | null
+          fall_detection_sensitivity?: number | null
+          heart_rate_detection_sensitivity?: number | null
           id?: string
+          motion_detection_sensitivity?: number | null
           notification_threshold?: number | null
           push_enabled?: boolean | null
+          retention_days?: number | null
           sms_enabled?: boolean | null
           updated_at?: string | null
           user_id?: string
