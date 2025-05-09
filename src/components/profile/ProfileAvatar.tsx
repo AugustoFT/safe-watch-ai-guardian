@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabase';
@@ -8,6 +8,33 @@ const ProfileAvatar = () => {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Carregar o avatar ao inicializar o componente
+  useEffect(() => {
+    async function loadAvatar() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        
+        if (data?.avatar_url) {
+          setAvatarUrl(data.avatar_url);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar avatar:', error);
+      }
+    }
+
+    loadAvatar();
+  }, []);
 
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -25,6 +52,12 @@ const ProfileAvatar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) throw new Error('Usuário não autenticado');
+
+      // Criar o bucket se não existir
+      const { error: bucketError } = await supabase
+        .storage
+        .createBucket('avatars', { public: true })
+        .catch(() => ({ error: null })); // Ignora erro se o bucket já existir
 
       // Fazer upload do arquivo para o bucket do Supabase Storage
       const { error: uploadError } = await supabase

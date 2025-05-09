@@ -11,6 +11,7 @@ export type Profile = {
   name: string;
   email: string;
   phone: string;
+  avatar_url?: string;
   created_at: string;
   updated_at?: string;
   emergency_contacts?: EmergencyContact[];
@@ -52,6 +53,8 @@ export type UserSettings = {
   motion_detection_sensitivity: number;
   created_at?: string;
   updated_at?: string;
+  device_token?: string;
+  notification_threshold?: number;
 }
 
 // Funções para perfil
@@ -346,7 +349,17 @@ export async function getUserSettings() {
       throw error;
     }
     
-    return data as UserSettings;
+    // Converter o resultado da API para o tipo UserSettings
+    const settings: UserSettings = {
+      ...data,
+      cloud_storage_enabled: data.cloud_storage_enabled ?? true,
+      retention_days: data.retention_days ?? 30,
+      fall_detection_sensitivity: data.fall_detection_sensitivity ?? 70,
+      heart_rate_detection_sensitivity: data.heart_rate_detection_sensitivity ?? 60,
+      motion_detection_sensitivity: data.motion_detection_sensitivity ?? 50,
+    };
+    
+    return settings;
   } catch (error) {
     console.error('Error fetching user settings:', error);
     throw error;
@@ -379,7 +392,17 @@ export async function createDefaultUserSettings() {
 
     if (error) throw error;
     
-    return data[0] as UserSettings;
+    // Converter o resultado da API para o tipo UserSettings
+    const settings: UserSettings = {
+      ...data[0],
+      cloud_storage_enabled: data[0].cloud_storage_enabled ?? true,
+      retention_days: data[0].retention_days ?? 30,
+      fall_detection_sensitivity: data[0].fall_detection_sensitivity ?? 70,
+      heart_rate_detection_sensitivity: data[0].heart_rate_detection_sensitivity ?? 60,
+      motion_detection_sensitivity: data[0].motion_detection_sensitivity ?? 50,
+    };
+    
+    return settings;
   } catch (error) {
     console.error('Error creating default user settings:', error);
     throw error;
@@ -413,7 +436,18 @@ export async function updateUserSettings(settings: Partial<UserSettings>) {
         .select();
 
       if (error) throw error;
-      return data[0] as UserSettings;
+      
+      // Converter o resultado da API para o tipo UserSettings
+      const updatedSettings: UserSettings = {
+        ...data[0],
+        cloud_storage_enabled: data[0].cloud_storage_enabled ?? true,
+        retention_days: data[0].retention_days ?? 30,
+        fall_detection_sensitivity: data[0].fall_detection_sensitivity ?? 70,
+        heart_rate_detection_sensitivity: data[0].heart_rate_detection_sensitivity ?? 60,
+        motion_detection_sensitivity: data[0].motion_detection_sensitivity ?? 50,
+      };
+      
+      return updatedSettings;
     } else {
       // Criar novas configurações
       const newSettings = {
@@ -436,7 +470,18 @@ export async function updateUserSettings(settings: Partial<UserSettings>) {
         .select();
 
       if (error) throw error;
-      return data[0] as UserSettings;
+      
+      // Converter o resultado da API para o tipo UserSettings
+      const createdSettings: UserSettings = {
+        ...data[0],
+        cloud_storage_enabled: data[0].cloud_storage_enabled ?? true,
+        retention_days: data[0].retention_days ?? 30,
+        fall_detection_sensitivity: data[0].fall_detection_sensitivity ?? 70,
+        heart_rate_detection_sensitivity: data[0].heart_rate_detection_sensitivity ?? 60,
+        motion_detection_sensitivity: data[0].motion_detection_sensitivity ?? 50,
+      };
+      
+      return createdSettings;
     }
   } catch (error) {
     console.error('Error updating user settings:', error);
