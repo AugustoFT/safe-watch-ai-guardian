@@ -1,0 +1,255 @@
+
+name: Train SafeWatch ML Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_type:
+        description: 'Model type to train (mobilenet, resnet, efficientnet)'
+        default: 'mobilenet'
+        required: true
+        type: choice
+        options:
+          - mobilenet
+          - resnet
+          - efficientnet
+      epochs:
+        description: 'Number of epochs for training'
+        default: '50'
+        required: true
+      batch_size:
+        description: 'Batch size for training'
+        default: '32'
+        required: true
+
+jobs:
+  prepare-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ml/requirements.txt
+
+      - name: Download raw data from S3
+        run: |
+          python ml/data_prep.py \
+            --from-s3 \
+            --s3-bucket ${{ secrets.AWS_S3_BUCKET }} \
+            --s3-prefix frames/ \
+            --output-dir ./data/processed
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Upload processed data
+        uses: actions/upload-artifact@v2
+        with:
+          name: processed-data
+          path: ./data/processed
+          retention-days: 1
+
+  train-model:
+    needs: prepare-data
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ml/requirements.txt
+
+      - name: Download processed data
+        uses: actions/download-artifact@v2
+        with:
+          name: processed-data
+          path: ./data/processed
+
+      - name: Train model
+        run: |
+          python ml/train.py \
+            --data-dir ./data/processed \
+            --output-dir ./models \
+            --model-type ${{ github.event.inputs.model_type }} \
+            --epochs ${{ github.event.inputs.epochs }} \
+            --batch-size ${{ github.event.inputs.batch_size }} \
+            --save-to-s3 \
+            --s3-bucket ${{ secrets.AWS_S3_BUCKET }} \
+            --supabase-url ${{ secrets.SUPABASE_URL }} \
+            --supabase-key ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: model-artifacts
+          path: ./models
+          retention-days: 7
+
+  evaluate-model:
+    needs: train-model
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ml/requirements.txt
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: model-artifacts
+          path: ./models
+
+      - name: Download processed data
+        uses: actions/download-artifact@v2
+        with:
+          name: processed-data
+          path: ./data/processed
+
+      - name: Find model file
+        id: find-model
+        run: |
+          MODEL_PATH=$(find ./models -name "*final.h5" | head -n 1)
+          echo "::set-output name=model_path::$MODEL_PATH"
+          echo "Found model: $MODEL_PATH"
+
+      - name: Evaluate model
+        run: |
+          python ml/evaluate.py \
+            --model-path ${{ steps.find-model.outputs.model_path }} \
+            --data-dir ./data/processed/images_test \
+            --output-dir ./evaluation \
+            --examples \
+            --supabase-url ${{ secrets.SUPABASE_URL }} \
+            --supabase-key ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v2
+        with:
+          name: evaluation-results
+          path: ./evaluation
+          retention-days: 30
+
+  register-model:
+    needs: evaluate-model
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download evaluation results
+        uses: actions/download-artifact@v2
+        with:
+          name: evaluation-results
+          path: ./evaluation
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Register model in Supabase
+        run: |
+          python -c "
+          import json
+          import requests
+          import os
+          from datetime import datetime
+          
+          # Carregar métricas da avaliação
+          with open('./evaluation/evaluation_metrics.json', 'r') as f:
+              metrics = json.load(f)
+          
+          # Preparar dados para Supabase
+          model_data = {
+              'model_name': metrics['model_name'],
+              'version': '${GITHUB_SHA}'.split()[0],
+              'accuracy': metrics['accuracy'],
+              'precision': metrics['precision'],
+              'recall': metrics['recall'],
+              'f1_score': metrics['f1_score'],
+              'parameters': {
+                  'model_type': '${github.event.inputs.model_type}',
+                  'epochs': int('${github.event.inputs.epochs}'),
+                  'batch_size': int('${github.event.inputs.batch_size}'),
+                  'git_hash': '${GITHUB_SHA}',
+                  'classes': metrics['classes'],
+              },
+              'training_date': datetime.now().isoformat(),
+              'model_path': f's3://${AWS_S3_BUCKET}/models/{metrics[\"model_name\"]}'
+          }
+          
+          # Enviar para Supabase
+          response = requests.post(
+              '${SUPABASE_URL}/rest/v1/model_metrics',
+              json=model_data,
+              headers={
+                  'apikey': '${SUPABASE_SERVICE_ROLE_KEY}',
+                  'Authorization': f'Bearer ${SUPABASE_SERVICE_ROLE_KEY}',
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=representation'
+              }
+          )
+          
+          if response.status_code == 201:
+              print('Model registered successfully in Supabase')
+          else:
+              print(f'Error registering model: {response.status_code} - {response.text}')
+              exit(1)
+          "
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          GITHUB_SHA: ${{ github.sha }}
+
+  notify-complete:
+    needs: register-model
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify completion
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            --data '{
+              "text": "🚀 SafeWatch ML Model training complete!\nModel type: ${{ github.event.inputs.model_type }}\nTrained for ${{ github.event.inputs.epochs }} epochs\nWorkflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }'
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}

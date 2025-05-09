@@ -82,7 +82,7 @@ export function scheduleFrameCapture(
   cameraId: string, 
   streamUrl: string, 
   intervalSeconds: number = 60
-): number {
+): ReturnType<typeof setInterval> {
   console.log(`Agendando captura de frames para câmera ${cameraId} a cada ${intervalSeconds} segundos`);
   
   // Agenda a execução periódica
@@ -102,6 +102,6 @@ export function scheduleFrameCapture(
  * Para a captura programada de frames
  * @param intervalId ID do intervalo retornado por scheduleFrameCapture
  */
-export function stopFrameCapture(intervalId: number): void {
+export function stopFrameCapture(intervalId: ReturnType<typeof setInterval>): void {
   clearInterval(intervalId);
 }

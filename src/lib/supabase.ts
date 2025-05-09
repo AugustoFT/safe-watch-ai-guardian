@@ -8,7 +8,7 @@ const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Verificação para garantir que as variáveis estão definidas
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias');
+  throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias no arquivo .env.local');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

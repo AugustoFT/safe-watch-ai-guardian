@@ -1,5 +1,5 @@
 
-// supabase/functions/send-sms/index.ts
+// supabase/functions/send-call/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -79,13 +79,23 @@ serve(async (req) => {
       );
     }
     
-    // Preparar e enviar SMS usando a API do Twilio
-    const twilioEndpoint = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+    // Criar TwiML para a chamada telefônica
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+    <Response>
+      <Say voice="woman" language="pt-BR">${message}</Say>
+      <Pause length="1"/>
+      <Say voice="woman" language="pt-BR">Esta é uma mensagem automatizada do SafeWatch. ${message}</Say>
+      <Pause length="1"/>
+      <Say voice="woman" language="pt-BR">Por favor, verifique o aplicativo para mais detalhes.</Say>
+    </Response>`;
+    
+    // Preparar e iniciar chamada usando a API do Twilio
+    const twilioEndpoint = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`;
     
     const twilioParams = new URLSearchParams();
     twilioParams.append('To', to);
     twilioParams.append('From', TWILIO_PHONE_NUMBER);
-    twilioParams.append('Body', message);
+    twilioParams.append('Twiml', twiml);
     
     const twilioResponse = await fetch(twilioEndpoint, {
       method: 'POST',
@@ -98,7 +108,7 @@ serve(async (req) => {
     
     const twilioData = await twilioResponse.json();
     
-    // Verificar se o Twilio conseguiu enviar a mensagem
+    // Verificar se o Twilio conseguiu iniciar a chamada
     if (!twilioResponse.ok || twilioData.error_code) {
       throw new Error(`Twilio error: ${twilioData.error_message || 'Unknown error'}`);
     }
@@ -125,10 +135,10 @@ serve(async (req) => {
         id: alertId || undefined, // Se já tiver ID, atualiza
         user_id: userId,
         event_id: eventId,
-        type: 'sms',
+        type: 'call',
         recipient: to,
         message: message,
-        status: 'sent',
+        status: 'initiated', // Status inicial da chamada
         external_id: twilioData.sid,
         sent_at: new Date().toISOString(),
         created_at: alertId ? undefined : new Date().toISOString() // Só define se for novo
@@ -137,14 +147,14 @@ serve(async (req) => {
       
     if (alertError) {
       console.error('Erro ao registrar alerta:', alertError);
-      // Não falha a requisição, já que o SMS foi enviado com sucesso
+      // Não falha a requisição, já que a chamada foi iniciada com sucesso
     }
     
     // Retornar sucesso
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message_sid: twilioData.sid,
+        call_sid: twilioData.sid,
         alert_id: alertData ? alertData[0].id : alertId
       }),
       {
@@ -153,10 +163,10 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Erro ao enviar SMS:', error);
+    console.error('Erro ao iniciar chamada:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Erro ao enviar SMS', details: error.message }),
+      JSON.stringify({ error: 'Erro ao iniciar chamada', details: error.message }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
